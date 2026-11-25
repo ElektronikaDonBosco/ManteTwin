@@ -1,0 +1,711 @@
+[
+  {
+    "id": "env3_broker",
+    "type": "mqtt-broker",
+    "name": "Mosquitto local",
+    "broker": "host.docker.internal",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "env3_tab",
+    "type": "tab",
+    "label": "ENV III (Wokwi)",
+    "disabled": false,
+    "info": "Recibe la telemetría del ESP32 simulado y controla el LED."
+  },
+  {
+    "id": "env3_c1",
+    "type": "comment",
+    "z": "env3_tab",
+    "name": "1 · Datos del ESP32 (cada 5 s)",
+    "info": "",
+    "x": 160,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "env3_in",
+    "type": "mqtt in",
+    "z": "env3_tab",
+    "name": "telemetry",
+    "topic": "mantetwin/env3/telemetry",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 120,
+    "y": 100,
+    "wires": [
+      [
+        "env3_dbg",
+        "env3_fmt"
+      ]
+    ]
+  },
+  {
+    "id": "env3_dbg",
+    "type": "debug",
+    "z": "env3_tab",
+    "name": "ENV III",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 340,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "env3_fmt",
+    "type": "function",
+    "z": "env3_tab",
+    "name": "Mostrar valores",
+    "func": "const d = msg.payload;\nnode.status({fill: 'green', shape: 'dot', text: `${d.t} °C · ${d.h} % · ${d.p ?? '—'} hPa · LED ${d.led ? 'ON' : 'OFF'}`});\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 130,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "env3_c2",
+    "type": "comment",
+    "z": "env3_tab",
+    "name": "2 · Estado de conexión (LWT)",
+    "info": "",
+    "x": 160,
+    "y": 190,
+    "wires": []
+  },
+  {
+    "id": "env3_st",
+    "type": "mqtt in",
+    "z": "env3_tab",
+    "name": "status",
+    "topic": "mantetwin/env3/status",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 110,
+    "y": 240,
+    "wires": [
+      [
+        "env3_st_fn"
+      ]
+    ]
+  },
+  {
+    "id": "env3_st_fn",
+    "type": "function",
+    "z": "env3_tab",
+    "name": "online / offline",
+    "func": "node.status({fill: msg.payload === 'online' ? 'green' : 'red', shape: 'dot', text: msg.payload});\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 330,
+    "y": 240,
+    "wires": [
+      [
+        "env3_st_dbg"
+      ]
+    ]
+  },
+  {
+    "id": "env3_st_dbg",
+    "type": "debug",
+    "z": "env3_tab",
+    "name": "Conexión",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 540,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "env3_c3",
+    "type": "comment",
+    "z": "env3_tab",
+    "name": "3 · Controlar el LED del ESP32",
+    "info": "",
+    "x": 160,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "env3_on",
+    "type": "inject",
+    "z": "env3_tab",
+    "name": "LED ON",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "on",
+    "payloadType": "str",
+    "x": 110,
+    "y": 350,
+    "wires": [
+      [
+        "env3_out"
+      ]
+    ]
+  },
+  {
+    "id": "env3_off",
+    "type": "inject",
+    "z": "env3_tab",
+    "name": "LED OFF",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "off",
+    "payloadType": "str",
+    "x": 110,
+    "y": 400,
+    "wires": [
+      [
+        "env3_out"
+      ]
+    ]
+  },
+  {
+    "id": "env3_out",
+    "type": "mqtt out",
+    "z": "env3_tab",
+    "name": "led",
+    "topic": "mantetwin/env3/led",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "env3_broker",
+    "x": 310,
+    "y": 375,
+    "wires": []
+  },
+  {
+    "id": "env3_dash_tab",
+    "type": "tab",
+    "label": "ENV III · Dashboard",
+    "disabled": false,
+    "info": "Requiere @flowfuse/node-red-dashboard. Abrir http://localhost:1880/dashboard"
+  },
+  {
+    "id": "env3_ui_base",
+    "type": "ui-base",
+    "name": "Estación ENV III",
+    "path": "/dashboard",
+    "includeClientData": true,
+    "acceptsClientConfig": [
+      "ui-notification",
+      "ui-control"
+    ],
+    "showPathInSidebar": false,
+    "navigationStyle": "default",
+    "titleBarStyle": "default"
+  },
+  {
+    "id": "env3_ui_theme",
+    "type": "ui-theme",
+    "name": "Don Bosco",
+    "colors": {
+      "surface": "#0f4c45",
+      "primary": "#1f78b4",
+      "bgPage": "#eef2f1",
+      "groupBg": "#ffffff",
+      "groupOutline": "#cfd8d6"
+    },
+    "sizes": {
+      "pagePadding": "12px",
+      "groupGap": "12px",
+      "groupBorderRadius": "6px",
+      "widgetGap": "12px"
+    }
+  },
+  {
+    "id": "env3_ui_page",
+    "type": "ui-page",
+    "name": "ENV III",
+    "ui": "env3_ui_base",
+    "path": "/env3",
+    "icon": "thermometer",
+    "layout": "grid",
+    "theme": "env3_ui_theme",
+    "order": 1,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "env3_ui_g1",
+    "type": "ui-group",
+    "name": "Ahora",
+    "page": "env3_ui_page",
+    "width": "12",
+    "height": "1",
+    "order": 1,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "env3_ui_g2",
+    "type": "ui-group",
+    "name": "Última hora",
+    "page": "env3_ui_page",
+    "width": "8",
+    "height": "1",
+    "order": 2,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "env3_ui_g3",
+    "type": "ui-group",
+    "name": "Control",
+    "page": "env3_ui_page",
+    "width": "4",
+    "height": "1",
+    "order": 3,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "d_c1",
+    "type": "comment",
+    "z": "env3_dash_tab",
+    "x": 160,
+    "y": 40,
+    "name": "Dashboard ENV III → http://localhost:1880/dashboard",
+    "info": "",
+    "wires": []
+  },
+  {
+    "id": "d_in",
+    "type": "mqtt in",
+    "z": "env3_dash_tab",
+    "x": 140,
+    "y": 120,
+    "name": "telemetry",
+    "topic": "mantetwin/env3/telemetry",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "d_split"
+      ]
+    ]
+  },
+  {
+    "id": "d_split",
+    "type": "function",
+    "z": "env3_dash_tab",
+    "x": 380,
+    "y": 120,
+    "name": "Repartir valores",
+    "func": "const d = msg.payload;\nreturn [\n  {payload: d.t},\n  {payload: d.h},\n  {payload: d.p},\n  [ {topic: 'Temperatura (°C)', payload: d.t}, {topic: 'Humedad (%)', payload: d.h} ],\n  {payload: d.led ? 'on' : 'off'}\n];",
+    "outputs": 5,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "d_gt"
+      ],
+      [
+        "d_gh"
+      ],
+      [
+        "d_gp"
+      ],
+      [
+        "d_chart"
+      ],
+      [
+        "d_sw"
+      ]
+    ]
+  },
+  {
+    "id": "d_gt",
+    "type": "ui-gauge",
+    "z": "env3_dash_tab",
+    "x": 720,
+    "y": 60,
+    "group": "env3_ui_g1",
+    "name": "",
+    "order": 1,
+    "width": 4,
+    "height": 3,
+    "gtype": "gauge-half",
+    "gstyle": "needle",
+    "title": "Temperatura",
+    "units": "°C",
+    "icon": "",
+    "prefix": "",
+    "suffix": "",
+    "segments": [
+      {
+        "from": "-10",
+        "color": "#1f78b4"
+      },
+      {
+        "from": "15",
+        "color": "#2ca02c"
+      },
+      {
+        "from": "28",
+        "color": "#ff9f1c"
+      },
+      {
+        "from": "35",
+        "color": "#e63946"
+      }
+    ],
+    "min": -10,
+    "max": "50",
+    "sizeThickness": 16,
+    "sizeGap": 4,
+    "sizeKeyThickness": 8,
+    "styleRounded": true,
+    "styleGlow": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "d_gh",
+    "type": "ui-gauge",
+    "z": "env3_dash_tab",
+    "x": 720,
+    "y": 100,
+    "group": "env3_ui_g1",
+    "name": "",
+    "order": 2,
+    "width": 4,
+    "height": 3,
+    "gtype": "gauge-half",
+    "gstyle": "needle",
+    "title": "Humedad",
+    "units": "%",
+    "icon": "",
+    "prefix": "",
+    "suffix": "",
+    "segments": [
+      {
+        "from": "0",
+        "color": "#ff9f1c"
+      },
+      {
+        "from": "30",
+        "color": "#2ca02c"
+      },
+      {
+        "from": "70",
+        "color": "#1f78b4"
+      }
+    ],
+    "min": 0,
+    "max": "100",
+    "sizeThickness": 16,
+    "sizeGap": 4,
+    "sizeKeyThickness": 8,
+    "styleRounded": true,
+    "styleGlow": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "d_gp",
+    "type": "ui-gauge",
+    "z": "env3_dash_tab",
+    "x": 720,
+    "y": 140,
+    "group": "env3_ui_g1",
+    "name": "",
+    "order": 3,
+    "width": 4,
+    "height": 3,
+    "gtype": "gauge-half",
+    "gstyle": "needle",
+    "title": "Presión",
+    "units": "hPa",
+    "icon": "",
+    "prefix": "",
+    "suffix": "",
+    "segments": [
+      {
+        "from": "950",
+        "color": "#1f78b4"
+      },
+      {
+        "from": "1000",
+        "color": "#2ca02c"
+      },
+      {
+        "from": "1030",
+        "color": "#ff9f1c"
+      }
+    ],
+    "min": 950,
+    "max": "1050",
+    "sizeThickness": 16,
+    "sizeGap": 4,
+    "sizeKeyThickness": 8,
+    "styleRounded": true,
+    "styleGlow": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "d_chart",
+    "type": "ui-chart",
+    "z": "env3_dash_tab",
+    "x": 710,
+    "y": 180,
+    "group": "env3_ui_g2",
+    "name": "",
+    "label": "Temperatura y humedad",
+    "order": 1,
+    "chartType": "line",
+    "category": "topic",
+    "categoryType": "msg",
+    "xAxisLabel": "",
+    "xAxisProperty": "",
+    "xAxisPropertyType": "timestamp",
+    "xAxisType": "time",
+    "xAxisFormat": "",
+    "xAxisFormatType": "auto",
+    "yAxisLabel": "",
+    "yAxisProperty": "payload",
+    "yAxisPropertyType": "msg",
+    "ymin": "",
+    "ymax": "",
+    "action": "append",
+    "stackSeries": false,
+    "pointShape": "false",
+    "pointRadius": 0,
+    "showLegend": true,
+    "removeOlder": "1",
+    "removeOlderUnit": "3600",
+    "removeOlderPoints": "",
+    "colors": [
+      "#e63946",
+      "#1f78b4",
+      "#2ca02c",
+      "#ff9f1c",
+      "#9467bd",
+      "#8c564b",
+      "#e377c2",
+      "#7f7f7f",
+      "#bcbd22"
+    ],
+    "textColor": [
+      "#666666"
+    ],
+    "textColorDefault": true,
+    "gridColor": [
+      "#e5e5e5"
+    ],
+    "gridColorDefault": true,
+    "width": 8,
+    "height": 6,
+    "className": "",
+    "interpolation": "linear",
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "d_sw",
+    "type": "ui-switch",
+    "z": "env3_dash_tab",
+    "x": 700,
+    "y": 240,
+    "group": "env3_ui_g3",
+    "name": "",
+    "label": "LED rojo",
+    "order": 2,
+    "width": 0,
+    "height": 0,
+    "passthru": false,
+    "topic": "topic",
+    "topicType": "msg",
+    "style": "",
+    "className": "",
+    "layout": "row-spread",
+    "clickableArea": "switch",
+    "onvalue": "on",
+    "onvalueType": "str",
+    "onicon": "",
+    "oncolor": "",
+    "offvalue": "off",
+    "offvalueType": "str",
+    "officon": "",
+    "offcolor": "",
+    "wires": [
+      [
+        "d_out"
+      ]
+    ]
+  },
+  {
+    "id": "d_out",
+    "type": "mqtt out",
+    "z": "env3_dash_tab",
+    "x": 900,
+    "y": 240,
+    "name": "led",
+    "topic": "mantetwin/env3/led",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "env3_broker",
+    "wires": []
+  },
+  {
+    "id": "d_st",
+    "type": "mqtt in",
+    "z": "env3_dash_tab",
+    "x": 140,
+    "y": 320,
+    "name": "status",
+    "topic": "mantetwin/env3/status",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "d_stf"
+      ]
+    ]
+  },
+  {
+    "id": "d_stf",
+    "type": "function",
+    "z": "env3_dash_tab",
+    "x": 380,
+    "y": 320,
+    "name": "Texto estado",
+    "func": "const on = msg.payload === 'online';\nmsg.payload = on ? '🟢 ESP32 conectado' : '🔴 ESP32 desconectado';\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "d_sttxt"
+      ]
+    ]
+  },
+  {
+    "id": "d_sttxt",
+    "type": "ui-text",
+    "z": "env3_dash_tab",
+    "x": 700,
+    "y": 320,
+    "group": "env3_ui_g3",
+    "order": 1,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Estado",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 16,
+    "color": "#333333",
+    "wrapText": false,
+    "className": "",
+    "wires": []
+  }
+]

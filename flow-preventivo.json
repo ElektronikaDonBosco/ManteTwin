@@ -1,0 +1,902 @@
+[
+ {
+  "id": "env3_broker",
+  "type": "mqtt-broker",
+  "name": "Mosquitto local",
+  "broker": "host.docker.internal",
+  "port": "1883",
+  "clientid": "",
+  "autoConnect": true,
+  "usetls": false,
+  "protocolVersion": "4",
+  "keepalive": "60",
+  "cleansession": true,
+  "autoUnsubscribe": true,
+  "birthTopic": "",
+  "birthQos": "0",
+  "birthRetain": "false",
+  "birthPayload": "",
+  "birthMsg": {},
+  "closeTopic": "",
+  "closeQos": "0",
+  "closeRetain": "false",
+  "closePayload": "",
+  "closeMsg": {},
+  "willTopic": "",
+  "willQos": "0",
+  "willRetain": "false",
+  "willPayload": "",
+  "willMsg": {},
+  "userProps": "",
+  "sessionExpiry": ""
+ },
+ {
+  "id": "env3_ui_base",
+  "type": "ui-base",
+  "name": "Estación ENV III",
+  "path": "/dashboard",
+  "includeClientData": true,
+  "acceptsClientConfig": [
+   "ui-notification",
+   "ui-control"
+  ],
+  "showPathInSidebar": false,
+  "navigationStyle": "default",
+  "titleBarStyle": "default"
+ },
+ {
+  "id": "env3_ui_theme",
+  "type": "ui-theme",
+  "name": "Don Bosco",
+  "colors": {
+   "surface": "#0f4c45",
+   "primary": "#1f78b4",
+   "bgPage": "#eef2f1",
+   "groupBg": "#ffffff",
+   "groupOutline": "#cfd8d6"
+  },
+  "sizes": {
+   "pagePadding": "12px",
+   "groupGap": "12px",
+   "groupBorderRadius": "6px",
+   "widgetGap": "12px"
+  }
+ },
+ {
+  "id": "prev_tab",
+  "type": "tab",
+  "label": "ManteTwin - Preventivo",
+  "disabled": false,
+  "info": "Mantenimiento preventivo + tacometro: ESP32 cuenta horas (solo si gira), arranques y bloqueos -> Node-RED aplica el plan -> LEDs/OLED + dashboard + libro CSV"
+ },
+ {
+  "id": "prev_ui_page",
+  "type": "ui-page",
+  "name": "4 · Preventivo",
+  "ui": "env3_ui_base",
+  "path": "/preventivo",
+  "icon": "wrench",
+  "layout": "grid",
+  "theme": "env3_ui_theme",
+  "breakpoints": [
+   {
+    "name": "Default",
+    "px": "0",
+    "cols": "3"
+   },
+   {
+    "name": "Tablet",
+    "px": "576",
+    "cols": "6"
+   },
+   {
+    "name": "Small Desktop",
+    "px": "768",
+    "cols": "9"
+   },
+   {
+    "name": "Desktop",
+    "px": "1024",
+    "cols": "12"
+   }
+  ],
+  "order": 4,
+  "className": "",
+  "visible": "true",
+  "disabled": "false"
+ },
+ {
+  "id": "prev_g_motor",
+  "type": "ui-group",
+  "name": "Motor",
+  "page": "prev_ui_page",
+  "width": "3",
+  "height": "1",
+  "order": 1,
+  "showTitle": true,
+  "className": "",
+  "visible": "true",
+  "disabled": "false",
+  "groupType": "default"
+ },
+ {
+  "id": "prev_g_plan",
+  "type": "ui-group",
+  "name": "Uso de cada mantenimiento (%)",
+  "page": "prev_ui_page",
+  "width": "9",
+  "height": "1",
+  "order": 2,
+  "showTitle": true,
+  "className": "",
+  "visible": "true",
+  "disabled": "false",
+  "groupType": "default"
+ },
+ {
+  "id": "prev_g_acc",
+  "type": "ui-group",
+  "name": "Mantenimiento realizado",
+  "page": "prev_ui_page",
+  "width": "3",
+  "height": "1",
+  "order": 3,
+  "showTitle": true,
+  "className": "",
+  "visible": "true",
+  "disabled": "false",
+  "groupType": "default"
+ },
+ {
+  "id": "prev_c1",
+  "type": "comment",
+  "name": "ESP32 -> donbosco/mantetwin/motor1/prev/datuak  |  Node-RED -> .../egoera  y  .../cmd",
+  "info": "",
+  "x": 330,
+  "y": 40,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_in",
+  "type": "mqtt in",
+  "name": "Datos contador",
+  "topic": "donbosco/mantetwin/motor1/prev/datuak",
+  "qos": "0",
+  "datatype": "json",
+  "broker": "env3_broker",
+  "nl": false,
+  "rap": true,
+  "rh": 0,
+  "inputs": 0,
+  "x": 130,
+  "y": 140,
+  "wires": [
+   [
+    "prev_guarda",
+    "prev_dbg"
+   ]
+  ],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_dbg",
+  "type": "debug",
+  "name": "JSON recibido",
+  "active": false,
+  "tosidebar": true,
+  "console": false,
+  "tostatus": false,
+  "complete": "payload",
+  "targetType": "msg",
+  "statusVal": "",
+  "statusType": "auto",
+  "x": 330,
+  "y": 80,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_guarda",
+  "type": "function",
+  "name": "Guardar ultimo dato",
+  "func": "flow.set('ultimoDato', msg.payload);\nreturn msg;\n",
+  "outputs": 1,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "",
+  "finalize": "",
+  "libs": [],
+  "x": 330,
+  "y": 140,
+  "wires": [
+   [
+    "prev_plan"
+   ]
+  ],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_plan",
+  "type": "function",
+  "name": "Plan de mantenimiento",
+  "func": "// PLAN DE MANTENIMIENTO PREVENTIVO (lo decide Node-RED, no el ESP32)\n// Intervalos tipo fabricante. Cambialos aqui para tu motor real.\nconst PLAN = {\n    engrase:     { nombre: 'Engrase',              limite: 250,  unidad: 'h' },\n    rodamientos: { nombre: 'Revision rodamientos', limite: 1000, unidad: 'h' },\n    electrica:   { nombre: 'Revision contactor',   limite: 30,   unidad: 'arranques' }\n};\nconst AVISO = 90;     // % de uso a partir del cual el mantenimiento esta PROXIMO\nconst d = msg.payload;\nif (!d || !d.tareas) return null;\n\nlet peor = 'OK', texto = 'Todo al dia';\nconst gauges = [], detalle = [];\nconst rango = { OK: 0, PROXIMO: 1, VENCIDO: 2, FALLO: 3 };\nfor (const id of Object.keys(PLAN)) {\n    const p = PLAN[id];\n    const uso = d.tareas[id] || 0;\n    const pct = Math.round(uso / p.limite * 1000) / 10;\n    const resta = Math.max(0, p.limite - uso);\n    let est = pct >= 100 ? 'VENCIDO' : (pct >= AVISO ? 'PROXIMO' : 'OK');\n    gauges.push({ payload: Math.min(pct, 120) });\n    detalle.push({ payload: est === 'VENCIDO'\n        ? `${p.nombre}: VENCIDO (+${(uso - p.limite).toFixed(p.unidad === 'h' ? 1 : 0)} ${p.unidad})`\n        : `${p.nombre}: faltan ${resta.toFixed(p.unidad === 'h' ? 1 : 0)} ${p.unidad}` });\n    if (rango[est] > rango[peor]) { peor = est; texto = `${p.nombre} ${est === 'VENCIDO' ? 'vencido' : 'proximo'}`; }\n}\n\n// El tacometro manda sobre el plan: un motor bloqueado es una AVERIA\nif (d.fallo) { peor = 'FALLO'; texto = 'Motor bloqueado: revisar'; }\n\n// Solo avisamos al ESP32 (y al operario) cuando cambia el estado\nconst egoera = `${peor};${texto}`;\nlet aviso = null, log = null;\nif (context.get('ultimo') !== egoera) {\n    context.set('ultimo', egoera);\n    if (peor !== 'OK') aviso = { payload: `MOTOR1: ${texto}`, topic: peor };\n    log = { payload: `${new Date().toISOString()};AVISO;${peor};${texto};${d.h.toFixed(2)};${d.arranques}` };\n    msg = { payload: egoera };\n} else msg = null;\n\nnode.status({ fill: peor === 'OK' ? 'green' : (peor === 'PROXIMO' ? 'yellow' : 'red'),\n              shape: 'dot', text: `${d.h.toFixed(1)} h, ${d.arranques} arr. - ${peor}` });\n\nreturn [msg, gauges[0], gauges[1], gauges[2], detalle[0], detalle[1], detalle[2],\n        { payload: `${d.h.toFixed(1)} h` }, { payload: String(d.arranques) },\n        { payload: d.fallo ? 'BLOQUEADO' : (d.on ? 'EN MARCHA' : 'PARADO') }, aviso, log,\n        { payload: d.rpm || 0 }, { payload: String(d.bloqueos || 0) }];\n",
+  "outputs": 14,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "",
+  "finalize": "",
+  "libs": [],
+  "x": 540,
+  "y": 300,
+  "wires": [
+   [
+    "prev_out_eg"
+   ],
+   [
+    "prev_g1"
+   ],
+   [
+    "prev_g2"
+   ],
+   [
+    "prev_g3"
+   ],
+   [
+    "prev_t1"
+   ],
+   [
+    "prev_t2"
+   ],
+   [
+    "prev_t3"
+   ],
+   [
+    "prev_th"
+   ],
+   [
+    "prev_ta"
+   ],
+   [
+    "prev_tm"
+   ],
+   [
+    "prev_notif"
+   ],
+   [
+    "prev_csv"
+   ],
+   [
+    "prev_g_rpm"
+   ],
+   [
+    "prev_t_blq"
+   ]
+  ],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_out_eg",
+  "type": "mqtt out",
+  "name": "Estado -> ESP32 (LEDs/OLED)",
+  "topic": "donbosco/mantetwin/motor1/prev/egoera",
+  "qos": "1",
+  "retain": "true",
+  "respTopic": "",
+  "contentType": "",
+  "userProps": "",
+  "correl": "",
+  "expiry": "",
+  "broker": "env3_broker",
+  "x": 850,
+  "y": 60,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_g1",
+  "type": "ui-gauge",
+  "name": "Engrase (250 h)",
+  "group": "prev_g_plan",
+  "order": 1,
+  "width": 3,
+  "height": 3,
+  "gtype": "gauge-half",
+  "gstyle": "needle",
+  "title": "Engrase (250 h)",
+  "units": "% usado",
+  "icon": "",
+  "prefix": "",
+  "suffix": "%",
+  "segments": [
+   {
+    "from": "0",
+    "color": "#5cd65c"
+   },
+   {
+    "from": "90",
+    "color": "#ffc800"
+   },
+   {
+    "from": "100",
+    "color": "#ea5353"
+   }
+  ],
+  "min": 0,
+  "max": 120,
+  "sizeThickness": 16,
+  "sizeGap": 4,
+  "sizeKeyThickness": 8,
+  "styleRounded": true,
+  "styleGlow": false,
+  "className": "",
+  "x": 820,
+  "y": 110,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_g2",
+  "type": "ui-gauge",
+  "name": "Rodamientos (1000 h)",
+  "group": "prev_g_plan",
+  "order": 3,
+  "width": 3,
+  "height": 3,
+  "gtype": "gauge-half",
+  "gstyle": "needle",
+  "title": "Rodamientos (1000 h)",
+  "units": "% usado",
+  "icon": "",
+  "prefix": "",
+  "suffix": "%",
+  "segments": [
+   {
+    "from": "0",
+    "color": "#5cd65c"
+   },
+   {
+    "from": "90",
+    "color": "#ffc800"
+   },
+   {
+    "from": "100",
+    "color": "#ea5353"
+   }
+  ],
+  "min": 0,
+  "max": 120,
+  "sizeThickness": 16,
+  "sizeGap": 4,
+  "sizeKeyThickness": 8,
+  "styleRounded": true,
+  "styleGlow": false,
+  "className": "",
+  "x": 830,
+  "y": 150,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_g3",
+  "type": "ui-gauge",
+  "name": "Contactor (30 arr.)",
+  "group": "prev_g_plan",
+  "order": 5,
+  "width": 3,
+  "height": 3,
+  "gtype": "gauge-half",
+  "gstyle": "needle",
+  "title": "Contactor (30 arr.)",
+  "units": "% usado",
+  "icon": "",
+  "prefix": "",
+  "suffix": "%",
+  "segments": [
+   {
+    "from": "0",
+    "color": "#5cd65c"
+   },
+   {
+    "from": "90",
+    "color": "#ffc800"
+   },
+   {
+    "from": "100",
+    "color": "#ea5353"
+   }
+  ],
+  "min": 0,
+  "max": 120,
+  "sizeThickness": 16,
+  "sizeGap": 4,
+  "sizeKeyThickness": 8,
+  "styleRounded": true,
+  "styleGlow": false,
+  "className": "",
+  "x": 830,
+  "y": 190,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_t1",
+  "type": "ui-text",
+  "group": "prev_g_plan",
+  "order": 2,
+  "width": 0,
+  "height": 0,
+  "name": "",
+  "label": "",
+  "format": "{{msg.payload}}",
+  "layout": "col-center",
+  "style": false,
+  "font": "",
+  "fontSize": 16,
+  "color": "#717171",
+  "wrapText": true,
+  "className": "",
+  "x": 820,
+  "y": 230,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_t2",
+  "type": "ui-text",
+  "group": "prev_g_plan",
+  "order": 4,
+  "width": 0,
+  "height": 0,
+  "name": "",
+  "label": "",
+  "format": "{{msg.payload}}",
+  "layout": "col-center",
+  "style": false,
+  "font": "",
+  "fontSize": 16,
+  "color": "#717171",
+  "wrapText": true,
+  "className": "",
+  "x": 820,
+  "y": 270,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_t3",
+  "type": "ui-text",
+  "group": "prev_g_plan",
+  "order": 6,
+  "width": 0,
+  "height": 0,
+  "name": "",
+  "label": "",
+  "format": "{{msg.payload}}",
+  "layout": "col-center",
+  "style": false,
+  "font": "",
+  "fontSize": 16,
+  "color": "#717171",
+  "wrapText": true,
+  "className": "",
+  "x": 820,
+  "y": 310,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_th",
+  "type": "ui-text",
+  "group": "prev_g_motor",
+  "order": 3,
+  "width": 0,
+  "height": 0,
+  "name": "Horas funcionamiento",
+  "label": "Horas funcionamiento",
+  "format": "{{msg.payload}}",
+  "layout": "row-spread",
+  "style": false,
+  "font": "",
+  "fontSize": 16,
+  "color": "#717171",
+  "wrapText": true,
+  "className": "",
+  "x": 830,
+  "y": 350,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_ta",
+  "type": "ui-text",
+  "group": "prev_g_motor",
+  "order": 4,
+  "width": 0,
+  "height": 0,
+  "name": "Arranques",
+  "label": "Arranques",
+  "format": "{{msg.payload}}",
+  "layout": "row-spread",
+  "style": false,
+  "font": "",
+  "fontSize": 16,
+  "color": "#717171",
+  "wrapText": true,
+  "className": "",
+  "x": 810,
+  "y": 390,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_tm",
+  "type": "ui-text",
+  "group": "prev_g_motor",
+  "order": 1,
+  "width": 0,
+  "height": 0,
+  "name": "Motor",
+  "label": "Motor",
+  "format": "{{msg.payload}}",
+  "layout": "row-spread",
+  "style": false,
+  "font": "",
+  "fontSize": 16,
+  "color": "#717171",
+  "wrapText": true,
+  "className": "",
+  "x": 800,
+  "y": 430,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_notif",
+  "type": "ui-notification",
+  "z": "prev_tab",
+  "ui": "env3_ui_base",
+  "position": "top right",
+  "colorDefault": true,
+  "color": "#000000",
+  "displayTime": "6",
+  "showCountdown": true,
+  "outputs": 1,
+  "allowDismiss": true,
+  "dismissText": "Cerrar",
+  "allowConfirm": false,
+  "confirmText": "OK",
+  "raw": false,
+  "className": "",
+  "name": "Aviso en pantalla",
+  "x": 820,
+  "y": 470,
+  "wires": [
+   []
+  ]
+ },
+ {
+  "id": "prev_csv",
+  "type": "file",
+  "name": "Libro de mantenimiento (CSV)",
+  "filename": "/data/mantetwin_motor1_preventivo.csv",
+  "filenameType": "str",
+  "appendNewline": true,
+  "createDir": true,
+  "overwriteFile": "false",
+  "encoding": "utf8",
+  "x": 860,
+  "y": 520,
+  "wires": [
+   []
+  ],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_st_in",
+  "type": "mqtt in",
+  "name": "Estado ESP32 (LWT)",
+  "topic": "donbosco/mantetwin/motor1/prev/status",
+  "qos": "1",
+  "datatype": "utf8",
+  "broker": "env3_broker",
+  "nl": false,
+  "rap": true,
+  "rh": 0,
+  "inputs": 0,
+  "x": 140,
+  "y": 440,
+  "wires": [
+   [
+    "prev_t_st"
+   ]
+  ],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_t_st",
+  "type": "ui-text",
+  "group": "prev_g_motor",
+  "order": 6,
+  "width": 0,
+  "height": 0,
+  "name": "ESP32",
+  "label": "ESP32",
+  "format": "{{msg.payload}}",
+  "layout": "row-spread",
+  "style": false,
+  "font": "",
+  "fontSize": 16,
+  "color": "#717171",
+  "wrapText": true,
+  "className": "",
+  "x": 380,
+  "y": 440,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_b0",
+  "type": "ui-button",
+  "z": "prev_tab",
+  "group": "prev_g_acc",
+  "name": "Engrase hecho",
+  "label": "Engrase hecho",
+  "order": 1,
+  "width": 0,
+  "height": 0,
+  "emulateClick": false,
+  "tooltip": "Pulsar despues de hacer el mantenimiento",
+  "color": "",
+  "bgcolor": "",
+  "className": "",
+  "icon": "check",
+  "iconPosition": "left",
+  "payload": "reset:engrase",
+  "payloadType": "str",
+  "topic": "engrase",
+  "topicType": "str",
+  "buttonColor": "",
+  "textColor": "",
+  "iconColor": "",
+  "enableClick": true,
+  "enablePointerdown": false,
+  "pointerdownPayload": "",
+  "pointerdownPayloadType": "str",
+  "enablePointerup": false,
+  "pointerupPayload": "",
+  "pointerupPayloadType": "str",
+  "x": 140,
+  "y": 540,
+  "wires": [
+   [
+    "prev_libro"
+   ]
+  ]
+ },
+ {
+  "id": "prev_b1",
+  "type": "ui-button",
+  "z": "prev_tab",
+  "group": "prev_g_acc",
+  "name": "Rodamientos revisados",
+  "label": "Rodamientos revisados",
+  "order": 2,
+  "width": 0,
+  "height": 0,
+  "emulateClick": false,
+  "tooltip": "Pulsar despues de hacer el mantenimiento",
+  "color": "",
+  "bgcolor": "",
+  "className": "",
+  "icon": "check",
+  "iconPosition": "left",
+  "payload": "reset:rodamientos",
+  "payloadType": "str",
+  "topic": "rodamientos",
+  "topicType": "str",
+  "buttonColor": "",
+  "textColor": "",
+  "iconColor": "",
+  "enableClick": true,
+  "enablePointerdown": false,
+  "pointerdownPayload": "",
+  "pointerdownPayloadType": "str",
+  "enablePointerup": false,
+  "pointerupPayload": "",
+  "pointerupPayloadType": "str",
+  "x": 140,
+  "y": 580,
+  "wires": [
+   [
+    "prev_libro"
+   ]
+  ]
+ },
+ {
+  "id": "prev_b2",
+  "type": "ui-button",
+  "z": "prev_tab",
+  "group": "prev_g_acc",
+  "name": "Contactor revisado",
+  "label": "Contactor revisado",
+  "order": 3,
+  "width": 0,
+  "height": 0,
+  "emulateClick": false,
+  "tooltip": "Pulsar despues de hacer el mantenimiento",
+  "color": "",
+  "bgcolor": "",
+  "className": "",
+  "icon": "check",
+  "iconPosition": "left",
+  "payload": "reset:electrica",
+  "payloadType": "str",
+  "topic": "electrica",
+  "topicType": "str",
+  "buttonColor": "",
+  "textColor": "",
+  "iconColor": "",
+  "enableClick": true,
+  "enablePointerdown": false,
+  "pointerdownPayload": "",
+  "pointerdownPayloadType": "str",
+  "enablePointerup": false,
+  "pointerupPayload": "",
+  "pointerupPayloadType": "str",
+  "x": 140,
+  "y": 620,
+  "wires": [
+   [
+    "prev_libro"
+   ]
+  ]
+ },
+ {
+  "id": "prev_b3",
+  "type": "ui-button",
+  "z": "prev_tab",
+  "group": "prev_g_acc",
+  "name": "Motor nuevo",
+  "label": "Motor nuevo (borrar todo)",
+  "order": 4,
+  "width": 0,
+  "height": 0,
+  "emulateClick": false,
+  "tooltip": "Pone horas y arranques a cero",
+  "color": "",
+  "bgcolor": "#ea5353",
+  "className": "",
+  "icon": "delete",
+  "iconPosition": "left",
+  "payload": "borrar_contadores",
+  "payloadType": "str",
+  "topic": "motor_nuevo",
+  "topicType": "str",
+  "buttonColor": "#ea5353",
+  "textColor": "",
+  "iconColor": "",
+  "enableClick": true,
+  "enablePointerdown": false,
+  "pointerdownPayload": "",
+  "pointerdownPayloadType": "str",
+  "enablePointerup": false,
+  "pointerupPayload": "",
+  "pointerupPayloadType": "str",
+  "x": 150,
+  "y": 660,
+  "wires": [
+   [
+    "prev_libro"
+   ]
+  ]
+ },
+ {
+  "id": "prev_libro",
+  "type": "function",
+  "name": "Registrar mantenimiento",
+  "func": "// Boton \"Hecho\": registra el mantenimiento en el libro (CSV) y avisa al ESP32\nconst ultimo = flow.get('ultimoDato') || { h: 0, arranques: 0 };\nconst fecha = new Date().toISOString();\nreturn [\n    { payload: msg.payload },                                          // -> cmd ESP32\n    { payload: `${fecha};HECHO;${msg.topic};;${ultimo.h.toFixed(2)};${ultimo.arranques}` },  // -> CSV\n    { payload: `Registrado: ${msg.topic} (${ultimo.h.toFixed(1)} h)` } // -> notificacion\n];\n",
+  "outputs": 3,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "",
+  "finalize": "",
+  "libs": [],
+  "x": 400,
+  "y": 600,
+  "wires": [
+   [
+    "prev_out_cmd"
+   ],
+   [
+    "prev_csv"
+   ],
+   [
+    "prev_notif"
+   ]
+  ],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_out_cmd",
+  "type": "mqtt out",
+  "name": "Orden -> ESP32",
+  "topic": "donbosco/mantetwin/motor1/prev/cmd",
+  "qos": "1",
+  "retain": "false",
+  "respTopic": "",
+  "contentType": "",
+  "userProps": "",
+  "correl": "",
+  "expiry": "",
+  "broker": "env3_broker",
+  "x": 640,
+  "y": 600,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_g_rpm",
+  "type": "ui-gauge",
+  "name": "RPM",
+  "group": "prev_g_motor",
+  "order": 2,
+  "width": 3,
+  "height": 3,
+  "gtype": "gauge-half",
+  "gstyle": "needle",
+  "title": "Velocidad (tacometro)",
+  "units": "rpm",
+  "icon": "",
+  "prefix": "",
+  "suffix": "",
+  "segments": [
+   {
+    "from": "0",
+    "color": "#ea5353"
+   },
+   {
+    "from": "300",
+    "color": "#ffc800"
+   },
+   {
+    "from": "800",
+    "color": "#5cd65c"
+   }
+  ],
+  "min": 0,
+  "max": 1600,
+  "sizeThickness": 16,
+  "sizeGap": 4,
+  "sizeKeyThickness": 8,
+  "styleRounded": true,
+  "styleGlow": false,
+  "className": "",
+  "x": 800,
+  "y": 560,
+  "wires": [],
+  "z": "prev_tab"
+ },
+ {
+  "id": "prev_t_blq",
+  "type": "ui-text",
+  "group": "prev_g_motor",
+  "order": 5,
+  "width": 0,
+  "height": 0,
+  "name": "Bloqueos detectados",
+  "label": "Bloqueos detectados",
+  "format": "{{msg.payload}}",
+  "layout": "row-spread",
+  "style": false,
+  "font": "",
+  "fontSize": 16,
+  "color": "#717171",
+  "wrapText": true,
+  "className": "",
+  "x": 830,
+  "y": 600,
+  "wires": [],
+  "z": "prev_tab"
+ }
+]

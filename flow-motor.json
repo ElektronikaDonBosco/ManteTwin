@@ -1,0 +1,466 @@
+[
+  {
+    "id": "env3_broker",
+    "type": "mqtt-broker",
+    "name": "Mosquitto local",
+    "broker": "host.docker.internal",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "env3_ui_base",
+    "type": "ui-base",
+    "name": "Estación ENV III",
+    "path": "/dashboard",
+    "includeClientData": true,
+    "acceptsClientConfig": [
+      "ui-notification",
+      "ui-control"
+    ],
+    "showPathInSidebar": false,
+    "navigationStyle": "default",
+    "titleBarStyle": "default"
+  },
+  {
+    "id": "env3_ui_theme",
+    "type": "ui-theme",
+    "name": "Don Bosco",
+    "colors": {
+      "surface": "#0f4c45",
+      "primary": "#1f78b4",
+      "bgPage": "#eef2f1",
+      "groupBg": "#ffffff",
+      "groupOutline": "#cfd8d6"
+    },
+    "sizes": {
+      "pagePadding": "12px",
+      "groupGap": "12px",
+      "groupBorderRadius": "6px",
+      "widgetGap": "12px"
+    }
+  },
+  {
+    "id": "motor1_tab_mantetwin",
+    "type": "tab",
+    "label": "ManteTwin - Motor1",
+    "disabled": false,
+    "info": "Motor baten mantentze prediktiboa: ESP32 + MPU6050 -> MQTT -> Node-RED"
+  },
+  {
+    "id": "motor1_c_info",
+    "type": "comment",
+    "z": "motor1_tab_mantetwin",
+    "name": "ESP32 -> donbosco/mantetwin/motor1/datuak | Node-RED -> .../egoera",
+    "info": "",
+    "x": 330,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "motor1_mqtt_in",
+    "type": "mqtt in",
+    "z": "motor1_tab_mantetwin",
+    "name": "Motor1 datuak",
+    "topic": "donbosco/mantetwin/motor1/datuak",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 140,
+    "y": 120,
+    "wires": [
+      [
+        "motor1_fn_analisia",
+        "motor1_dbg_raw"
+      ]
+    ]
+  },
+  {
+    "id": "motor1_dbg_raw",
+    "type": "debug",
+    "z": "motor1_tab_mantetwin",
+    "name": "JSON gordina",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 360,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "motor1_btn_relearn",
+    "type": "ui-button",
+    "z": "motor1_tab_mantetwin",
+    "group": "motor1_g_kontrola",
+    "name": "Berrikasi",
+    "label": "Oinarria berrikasi",
+    "order": 1,
+    "width": 0,
+    "height": 0,
+    "emulateClick": false,
+    "tooltip": "Motorra egoera onean dagoenean sakatu",
+    "color": "",
+    "bgcolor": "",
+    "className": "",
+    "icon": "refresh",
+    "iconPosition": "left",
+    "payload": "relearn",
+    "payloadType": "str",
+    "topic": "relearn",
+    "topicType": "str",
+    "buttonColor": "",
+    "textColor": "",
+    "iconColor": "",
+    "enableClick": true,
+    "enablePointerdown": false,
+    "pointerdownPayload": "",
+    "pointerdownPayloadType": "str",
+    "enablePointerup": false,
+    "pointerupPayload": "",
+    "pointerupPayloadType": "str",
+    "x": 140,
+    "y": 200,
+    "wires": [
+      [
+        "motor1_fn_analisia"
+      ]
+    ]
+  },
+  {
+    "id": "motor1_fn_analisia",
+    "type": "function",
+    "z": "motor1_tab_mantetwin",
+    "name": "Analisia (oinarria + mugak)",
+    "func": "// Oinarria ikasi (motorra egoera onean) eta mugak kalkulatu\nconst IKASTEKO_N = 30;          // 30 leiho = ~30 s\nconst K_ABISUA = 3, K_ALARMA = 6;\nconst SD_MIN = 0.01;            // g, sigma txikiegia saihesteko\n\nif (msg.topic === 'relearn') {\n    context.set('b', { n: 0, mean: 0, m2: 0, ready: false });\n    context.set('hist', []);\n    context.set('state', null);\n    node.status({ fill: 'blue', shape: 'ring', text: 'Oinarria berrikasten...' });\n    return [null, null, { payload: 'IKASTEN - oinarria berrikasten' },\n            { payload: 'IKASTEN' }, { payload: 'Oinarria berrikasten hasi da' }, null];\n}\n\nconst d = msg.payload;\nif (!d || typeof d.rms !== 'number') return null;\nconst rms = d.rms;\nconst peak = Number(d.peak || 0), crest = Number(d.crest || 0), temp = Number(d.temp || 0);\n\n// Batez besteko mugikorra (azken 5 leihoak) zarata leuntzeko\nconst hist = context.get('hist') || [];\nhist.push(rms);\nif (hist.length > 5) hist.shift();\ncontext.set('hist', hist);\nconst avg = hist.reduce((s, v) => s + v, 0) / hist.length;\n\nconst b = context.get('b') || { n: 0, mean: 0, m2: 0, ready: false };\nlet state = 'IKASTEN', warn = null, alarm = null;\n\nif (!b.ready) {\n    // Welford algoritmoa: batez bestekoa eta bariantza online\n    b.n++;\n    const delta = rms - b.mean;\n    b.mean += delta / b.n;\n    b.m2 += delta * (rms - b.mean);\n    if (b.n >= IKASTEKO_N) b.ready = true;\n    context.set('b', b);\n}\nif (b.ready) {\n    const sd = Math.max(Math.sqrt(b.m2 / (b.n - 1)), SD_MIN);\n    warn = b.mean + K_ABISUA * sd;\n    alarm = b.mean + K_ALARMA * sd;\n    state = avg >= alarm ? 'ALARMA' : (avg >= warn ? 'ABISUA' : 'NORMALA');\n}\n\nconst colors = { IKASTEN: 'blue', NORMALA: 'green', ABISUA: 'yellow', ALARMA: 'red' };\nnode.status({ fill: colors[state], shape: 'dot', text: `${state} - RMS ${avg.toFixed(3)} g` });\n\n// 1) gauge  2) grafikoa  3) testua  4) ESP32-ra  5) jakinarazpena  6) CSV loga\nconst chart = [{ topic: 'RMS', payload: rms }, { topic: 'Batez bestekoa', payload: avg }];\nif (b.ready) chart.push({ topic: 'Abisu-muga', payload: warn }, { topic: 'Alarma-muga', payload: alarm });\n\nconst text = {\n    payload: b.ready\n        ? `${state} | RMS ${rms.toFixed(3)} g | gailurra ${peak.toFixed(3)} g | crest ${crest.toFixed(2)} | ${temp.toFixed(1)} C`\n        : `IKASTEN ${b.n}/${IKASTEKO_N} (motorra egoera onean egon behar da)`\n};\n\nlet toEsp = null, notif = null, log = null;\nif (state !== context.get('state')) {\n    context.set('state', state);\n    toEsp = { payload: state };\n    if (state !== 'IKASTEN') {\n        notif = { payload: `Motor1: ${state} (RMS ${avg.toFixed(3)} g; mugak ${warn.toFixed(3)} / ${alarm.toFixed(3)} g)` };\n    }\n    log = { payload: [new Date().toISOString(), state, rms.toFixed(4), avg.toFixed(4),\n                      warn === null ? '' : warn.toFixed(4), alarm === null ? '' : alarm.toFixed(4)].join(';') };\n}\nreturn [{ payload: rms }, chart, text, toEsp, notif, log];\n",
+    "outputs": 6,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "outputLabels": [
+      "RMS",
+      "Grafikoa",
+      "Testua",
+      "ESP32-ra",
+      "Jakinarazpena",
+      "CSV"
+    ],
+    "x": 400,
+    "y": 160,
+    "wires": [
+      [
+        "motor1_g_rms"
+      ],
+      [
+        "motor1_ch_rms"
+      ],
+      [
+        "motor1_txt_egoera"
+      ],
+      [
+        "motor1_mqtt_out"
+      ],
+      [
+        "motor1_notif"
+      ],
+      [
+        "motor1_file_log"
+      ]
+    ]
+  },
+  {
+    "id": "motor1_g_rms",
+    "type": "ui-gauge",
+    "z": "motor1_tab_mantetwin",
+    "name": "RMS gauge",
+    "group": "motor1_g_egoera",
+    "order": 1,
+    "width": 3,
+    "height": 3,
+    "gtype": "gauge-half",
+    "gstyle": "needle",
+    "title": "Bibrazioa (RMS)",
+    "units": "g",
+    "icon": "",
+    "prefix": "",
+    "suffix": "",
+    "segments": [
+      {
+        "from": "0",
+        "color": "#5cd65c"
+      },
+      {
+        "from": "0.3",
+        "color": "#ffc800"
+      },
+      {
+        "from": "0.6",
+        "color": "#ea5353"
+      }
+    ],
+    "min": 0,
+    "max": 1.5,
+    "sizeThickness": 16,
+    "sizeGap": 4,
+    "sizeKeyThickness": 8,
+    "styleRounded": true,
+    "styleGlow": false,
+    "className": "",
+    "x": 690,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "motor1_ch_rms",
+    "type": "ui-chart",
+    "z": "motor1_tab_mantetwin",
+    "group": "motor1_g_grafikoa",
+    "name": "RMS grafikoa",
+    "label": "Bibrazioa eta mugak",
+    "order": 1,
+    "chartType": "line",
+    "category": "topic",
+    "categoryType": "msg",
+    "xAxisLabel": "",
+    "xAxisProperty": "",
+    "xAxisPropertyType": "timestamp",
+    "xAxisType": "time",
+    "xAxisFormat": "",
+    "xAxisFormatType": "auto",
+    "xmin": "",
+    "xmax": "",
+    "yAxisLabel": "g",
+    "yAxisProperty": "payload",
+    "yAxisPropertyType": "msg",
+    "ymin": "0",
+    "ymax": "",
+    "bins": 10,
+    "action": "append",
+    "stackSeries": false,
+    "pointShape": "false",
+    "pointRadius": 2,
+    "showLegend": true,
+    "removeOlder": "5",
+    "removeOlderUnit": "60",
+    "removeOlderPoints": "",
+    "colors": [
+      "#0095ff",
+      "#7f7f7f",
+      "#ffc800",
+      "#ea5353",
+      "#2ca02c",
+      "#98df8a",
+      "#d62728",
+      "#ff9896",
+      "#9467bd"
+    ],
+    "textColor": [
+      "#666666"
+    ],
+    "textColorDefault": true,
+    "gridColor": [
+      "#e5e5e5"
+    ],
+    "gridColorDefault": true,
+    "width": 9,
+    "height": 5,
+    "className": "",
+    "interpolation": "linear",
+    "x": 690,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "motor1_txt_egoera",
+    "type": "ui-text",
+    "z": "motor1_tab_mantetwin",
+    "group": "motor1_g_egoera",
+    "order": 2,
+    "width": 0,
+    "height": 0,
+    "name": "Egoera testua",
+    "label": "Egoera",
+    "format": "{{msg.payload}}",
+    "layout": "col-center",
+    "style": false,
+    "font": "",
+    "fontSize": 16,
+    "color": "#717171",
+    "wrapText": true,
+    "className": "",
+    "x": 690,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "motor1_mqtt_out",
+    "type": "mqtt out",
+    "z": "motor1_tab_mantetwin",
+    "name": "Egoera ESP32-ra",
+    "topic": "donbosco/mantetwin/motor1/egoera",
+    "qos": "1",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "env3_broker",
+    "x": 700,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "motor1_notif",
+    "type": "ui-notification",
+    "z": "motor1_tab_mantetwin",
+    "ui": "env3_ui_base",
+    "position": "top right",
+    "colorDefault": true,
+    "color": "#000000",
+    "displayTime": "6",
+    "showCountdown": true,
+    "outputs": 1,
+    "allowDismiss": true,
+    "dismissText": "Itxi",
+    "allowConfirm": false,
+    "confirmText": "Ados",
+    "raw": false,
+    "className": "",
+    "name": "Abisua pantailan",
+    "x": 710,
+    "y": 240,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "motor1_file_log",
+    "type": "file",
+    "z": "motor1_tab_mantetwin",
+    "name": "Gertaeren loga (CSV)",
+    "filename": "/data/mantetwin_motor1_log.csv",
+    "filenameType": "str",
+    "appendNewline": true,
+    "createDir": true,
+    "overwriteFile": "false",
+    "encoding": "utf8",
+    "x": 720,
+    "y": 280,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "motor1_ui_page",
+    "type": "ui-page",
+    "name": "Motor1",
+    "ui": "env3_ui_base",
+    "path": "/motor1",
+    "icon": "engine",
+    "layout": "grid",
+    "theme": "env3_ui_theme",
+    "breakpoints": [
+      {
+        "name": "Default",
+        "px": "0",
+        "cols": "3"
+      },
+      {
+        "name": "Tablet",
+        "px": "576",
+        "cols": "6"
+      },
+      {
+        "name": "Small Desktop",
+        "px": "768",
+        "cols": "9"
+      },
+      {
+        "name": "Desktop",
+        "px": "1024",
+        "cols": "12"
+      }
+    ],
+    "order": 3,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "motor1_g_egoera",
+    "type": "ui-group",
+    "name": "Egoera",
+    "page": "motor1_ui_page",
+    "width": "3",
+    "height": "1",
+    "order": 1,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false",
+    "groupType": "default"
+  },
+  {
+    "id": "motor1_g_grafikoa",
+    "type": "ui-group",
+    "name": "Bibrazioa denboran",
+    "page": "motor1_ui_page",
+    "width": "9",
+    "height": "1",
+    "order": 2,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false",
+    "groupType": "default"
+  },
+  {
+    "id": "motor1_g_kontrola",
+    "type": "ui-group",
+    "name": "Kontrola",
+    "page": "motor1_ui_page",
+    "width": "3",
+    "height": "1",
+    "order": 3,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false",
+    "groupType": "default"
+  }
+]

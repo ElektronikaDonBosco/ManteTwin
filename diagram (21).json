@@ -1,0 +1,253 @@
+{
+  "version": 1,
+  "author": "CIFP Don Bosco LHII - ManteTwin",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "chip-sht30-mt",
+      "id": "sht_main",
+      "top": -40,
+      "left": 230,
+      "attrs": {
+        "address": "68",
+        "temperature": "24",
+        "humidity": "45"
+      }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot_att",
+      "top": 120,
+      "left": 230,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot_loss",
+      "top": 120,
+      "left": 340,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "sw_link",
+      "top": 230,
+      "left": 260,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 220,
+      "left": -170,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": 180,
+      "left": -230,
+      "attrs": {
+        "color": "green"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 260,
+      "left": -170,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led2",
+      "top": 220,
+      "left": -230,
+      "attrs": {
+        "color": "red"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 300,
+      "left": -170,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led3",
+      "top": 260,
+      "left": -230,
+      "attrs": {
+        "color": "yellow"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "esp:TX",
+      "$serialMonitor:RX",
+      "",
+      []
+    ],
+    [
+      "esp:RX",
+      "$serialMonitor:TX",
+      "",
+      []
+    ],
+    [
+      "sht_main:SDA",
+      "esp:21",
+      "blue",
+      []
+    ],
+    [
+      "sht_main:SCL",
+      "esp:22",
+      "purple",
+      []
+    ],
+    [
+      "sht_main:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "sht_main:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "sht_main:FLT",
+      "esp:34",
+      "orange",
+      []
+    ],
+    [
+      "pot_att:SIG",
+      "esp:32",
+      "green",
+      []
+    ],
+    [
+      "pot_att:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "pot_att:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "pot_loss:SIG",
+      "esp:33",
+      "green",
+      []
+    ],
+    [
+      "pot_loss:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "pot_loss:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "sw_link:2",
+      "esp:14",
+      "orange",
+      []
+    ],
+    [
+      "sw_link:1",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "sw_link:3",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "esp:25",
+      "r1:2",
+      "green",
+      []
+    ],
+    [
+      "r1:1",
+      "led1:A",
+      "green",
+      []
+    ],
+    [
+      "led1:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:26",
+      "r2:2",
+      "red",
+      []
+    ],
+    [
+      "r2:1",
+      "led2:A",
+      "red",
+      []
+    ],
+    [
+      "led2:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:27",
+      "r3:2",
+      "yellow",
+      []
+    ],
+    [
+      "r3:1",
+      "led3:A",
+      "yellow",
+      []
+    ],
+    [
+      "led3:C",
+      "esp:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

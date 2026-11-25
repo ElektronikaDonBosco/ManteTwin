@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "author": "Don Bosco - Elektronika eta Telekomunikazioak (ManteTwin)",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-mpu6050", "id": "imu", "top": -134.18, "left": 194.32, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "pot", "top": -114.9, "left": -153.8, "attrs": {} },
+    { "type": "wokwi-led", "id": "led_g", "top": 140, "left": 230, "attrs": { "color": "green" } },
+    { "type": "wokwi-led", "id": "led_y", "top": 140, "left": 280, "attrs": { "color": "yellow" } },
+    { "type": "wokwi-led", "id": "led_r", "top": 140, "left": 330, "attrs": { "color": "red" } },
+    { "type": "wokwi-resistor", "id": "r_g", "top": 230, "left": 220, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r_y", "top": 230, "left": 270, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r_r", "top": 230, "left": 320, "rotate": 90, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+
+    [ "imu:VCC", "esp:3V3", "red", [] ],
+    [ "imu:GND", "esp:GND.1", "black", [] ],
+    [ "imu:SDA", "esp:21", "green", [] ],
+    [ "imu:SCL", "esp:22", "blue", [] ],
+
+    [ "pot:VCC", "esp:3V3", "red", [] ],
+    [ "pot:GND", "esp:GND.1", "black", [] ],
+    [ "pot:SIG", "esp:34", "orange", [] ],
+
+    [ "esp:25", "r_g:1", "green", [] ],
+    [ "r_g:2", "led_g:A", "green", [] ],
+    [ "led_g:C", "esp:GND.2", "black", [] ],
+
+    [ "esp:26", "r_y:1", "gold", [] ],
+    [ "r_y:2", "led_y:A", "gold", [] ],
+    [ "led_y:C", "esp:GND.2", "black", [] ],
+
+    [ "esp:27", "r_r:1", "red", [] ],
+    [ "r_r:2", "led_r:A", "red", [] ],
+    [ "led_r:C", "esp:GND.2", "black", [] ]
+  ],
+  "dependencies": {}
+}

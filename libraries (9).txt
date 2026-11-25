@@ -1,0 +1,5 @@
+# Wokwi liburutegiak
+Adafruit MPU6050
+Adafruit Unified Sensor
+PubSubClient
+ArduinoJson

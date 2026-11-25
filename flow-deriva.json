@@ -1,0 +1,940 @@
+[
+  {
+    "id": "env3_broker",
+    "type": "mqtt-broker",
+    "name": "Mosquitto local",
+    "broker": "host.docker.internal",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "env3_ui_base",
+    "type": "ui-base",
+    "name": "Estación ENV III",
+    "path": "/dashboard",
+    "includeClientData": true,
+    "acceptsClientConfig": [
+      "ui-notification",
+      "ui-control"
+    ],
+    "showPathInSidebar": false,
+    "navigationStyle": "default",
+    "titleBarStyle": "default"
+  },
+  {
+    "id": "env3_ui_theme",
+    "type": "ui-theme",
+    "name": "Don Bosco",
+    "colors": {
+      "surface": "#0f4c45",
+      "primary": "#1f78b4",
+      "bgPage": "#eef2f1",
+      "groupBg": "#ffffff",
+      "groupOutline": "#cfd8d6"
+    },
+    "sizes": {
+      "pagePadding": "12px",
+      "groupGap": "12px",
+      "groupBorderRadius": "6px",
+      "widgetGap": "12px"
+    }
+  },
+  {
+    "id": "mt_tab_drift",
+    "type": "tab",
+    "label": "ManteTwin · 1 Deriva",
+    "disabled": false,
+    "info": "Escenario 1 – deriva de sensor (pérdida de calibración).\nRecibe la telemetría de mt-drift, calcula la tendencia de dT_ema por regresión lineal y estima el RUL (tiempo hasta 1,5 °C). Publica analítica y alertas por MQTT."
+  },
+  {
+    "id": "c1",
+    "type": "comment",
+    "z": "mt_tab_drift",
+    "x": 190,
+    "y": 40,
+    "name": "1 · Telemetría del nodo (Wokwi / ESP32 real)",
+    "info": "Topic: mantetwin/mt-drift/telemetry\nEl nodo MQTT ya convierte el JSON (datatype=json).",
+    "wires": []
+  },
+  {
+    "id": "in_tele",
+    "type": "mqtt in",
+    "z": "mt_tab_drift",
+    "x": 190,
+    "y": 100,
+    "name": "Telemetría mt-drift",
+    "topic": "mantetwin/mt-drift/telemetry",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "fn_rul",
+        "dbg_raw"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_raw",
+    "type": "debug",
+    "z": "mt_tab_drift",
+    "x": 450,
+    "y": 60,
+    "name": "Telemetría (raw)",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "wires": []
+  },
+  {
+    "id": "fn_rul",
+    "type": "function",
+    "z": "mt_tab_drift",
+    "x": 470,
+    "y": 120,
+    "name": "Tendencia + RUL",
+    "func": "// =====================================================================\n//  ManteTwin · Escenario 1 – Deriva de sensor → tendencia y RUL\n//  Entrada : msg.payload = telemetría JSON del nodo mt-drift\n//  Salida 1: analítica (cada muestra)        → mantetwin/<nodo>/analytics\n//  Salida 2: alerta (solo cambios de estado) → mantetwin/<nodo>/alert\n// =====================================================================\n\n// ---- Parámetros (ajustables) ----\nconst WINDOW_MIN = 5;      // ventana de la regresión lineal (min)\nconst MIN_POINTS = 15;     // muestras mínimas para estimar la tendencia\nconst WARN  = 0.5;         // °C (mismo umbral que el firmware)\nconst ALARM = 1.5;         // °C → fin de vida útil del sensor (recalibrar)\nconst MIN_RATE = 0.01;     // °C/min: por debajo se considera estable\nconst MIN_R2 = 0.6;        // calidad mínima del ajuste para fiarse del RUL\n\nconst d = msg.payload;\nif (!d || typeof d.dT_ema !== \"number\") {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"sin dT_ema (\" + (d && d.st) + \")\" });\n    return null;\n}\nconst nodeId = d.node || \"mt-drift\";\nconst now = Date.now();\n\n// ---- Reinicio del nodo (seq vuelve a empezar) → vaciar historial ----\nlet buf = context.get(\"buf\") || [];\nconst lastSeq = context.get(\"lastSeq\") || 0;\nif (typeof d.seq === \"number\" && d.seq < lastSeq) buf = [];\ncontext.set(\"lastSeq\", d.seq || 0);\n\n// ---- Ventana deslizante ----\nbuf.push({ t: now, y: d.dT_ema });\nbuf = buf.filter(p => p.t >= now - WINDOW_MIN * 60000);\ncontext.set(\"buf\", buf);\n\n// ---- Regresión lineal y = a + b·x  (x en minutos) ----\nlet slope = 0, r2 = 0;\nconst n = buf.length;\nif (n >= 3) {\n    const t0 = buf[0].t;\n    let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;\n    for (const p of buf) {\n        const x = (p.t - t0) / 60000;\n        sx += x; sy += p.y; sxx += x * x; sxy += x * p.y; syy += p.y * p.y;\n    }\n    const den = n * sxx - sx * sx;\n    if (den > 0) {\n        slope = (n * sxy - sx * sy) / den;\n        const num = n * sxy - sx * sy;\n        const dy = n * syy - sy * sy;\n        r2 = dy > 0 ? (num * num) / (den * dy) : 0;\n    }\n}\n\n// ---- Deriva \"hacia fuera\" (sirve para deriva positiva o negativa) ----\nconst absDev = Math.abs(d.dT_ema);\nconst dir = Math.sign(d.dT_ema) || Math.sign(slope) || 1;\nconst rate = slope * dir;                         // °C/min alejándose de 0\nconst trendOk = n >= MIN_POINTS && rate > MIN_RATE && r2 >= MIN_R2;\n\n// ---- RUL (minutos hasta llegar al umbral de alarma) ----\nlet rulMin = null, warnMin = null;\nif (absDev >= ALARM) rulMin = 0;\nelse if (trendOk) rulMin = (ALARM - absDev) / rate;\nif (absDev >= WARN) warnMin = 0;\nelse if (trendOk) warnMin = (WARN - absDev) / rate;\n\n// ---- Salud del sensor (100 % = calibrado, 0 % = umbral de alarma) ----\nconst health = Math.max(0, Math.min(100, 100 * (1 - absDev / ALARM)));\n\n// ---- Estado según el servidor (se adelanta al Edge gracias a la tendencia) ----\nlet state = \"OK\";\nif (absDev >= ALARM) state = \"ALARM\";\nelse if (absDev >= WARN) state = \"WARN\";\nelse if (trendOk && rulMin !== null && rulMin < 30) state = \"TREND\";   // deriva incipiente\n\nconst fmt = m => m === null ? \"—\" : m < 1 ? Math.round(m * 60) + \" s\" : m.toFixed(1) + \" min\";\n\nconst analytics = {\n    node: nodeId,\n    ts: now,\n    t: d.t, t_ref: d.t_ref,\n    dT: d.dT, dT_ema: d.dT_ema,\n    slope_c_min: +slope.toFixed(4),\n    r2: +r2.toFixed(3),\n    n_points: n,\n    rul_min: rulMin === null ? null : +rulMin.toFixed(2),\n    warn_in_min: warnMin === null ? null : +warnMin.toFixed(2),\n    health_pct: +health.toFixed(1),\n    state_server: state,\n    state_edge: d.st,\n    label: d.label\n};\n\n// ---- Estado del nodo en el editor ----\nconst colors = { OK: \"green\", TREND: \"yellow\", WARN: \"yellow\", ALARM: \"red\" };\nnode.status({ fill: colors[state], shape: \"dot\",\n              text: `${state} | dT=${d.dT_ema.toFixed(2)} °C | ${rate.toFixed(3)} °C/min | RUL ${fmt(rulMin)}` });\n\nconst out1 = { topic: `mantetwin/${nodeId}/analytics`, payload: analytics };\n\n// ---- Alerta solo cuando cambia el estado ----\nlet out2 = null;\nconst prev = context.get(\"state\") || \"OK\";\nif (state !== prev) {\n    context.set(\"state\", state);\n    const txt = {\n        OK:    \"Sensor de nuevo dentro de calibración\",\n        TREND: `Deriva detectada: alcanzará la alarma en ~${fmt(rulMin)}`,\n        WARN:  `Desviación ${absDev.toFixed(2)} °C (aviso). RUL ~${fmt(rulMin)}`,\n        ALARM: `Desviación ${absDev.toFixed(2)} °C: RECALIBRAR / sustituir sensor`\n    }[state];\n    out2 = { topic: `mantetwin/${nodeId}/alert`,\n             payload: { node: nodeId, ts: now, from: prev, to: state, msg: txt, rul_min: analytics.rul_min } };\n}\nreturn [out1, out2];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "out_an",
+        "dbg_an"
+      ],
+      [
+        "out_al",
+        "dbg_al"
+      ]
+    ]
+  },
+  {
+    "id": "out_an",
+    "type": "mqtt out",
+    "z": "mt_tab_drift",
+    "x": 790,
+    "y": 100,
+    "name": "→ analytics",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "env3_broker",
+    "wires": []
+  },
+  {
+    "id": "dbg_an",
+    "type": "debug",
+    "z": "mt_tab_drift",
+    "x": 780,
+    "y": 140,
+    "name": "Analítica",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "wires": []
+  },
+  {
+    "id": "out_al",
+    "type": "mqtt out",
+    "z": "mt_tab_drift",
+    "x": 790,
+    "y": 200,
+    "name": "→ alert",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "env3_broker",
+    "wires": []
+  },
+  {
+    "id": "dbg_al",
+    "type": "debug",
+    "z": "mt_tab_drift",
+    "x": 770,
+    "y": 240,
+    "name": "ALERTAS",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "wires": []
+  },
+  {
+    "id": "c2",
+    "type": "comment",
+    "z": "mt_tab_drift",
+    "x": 180,
+    "y": 300,
+    "name": "2 · Estado de conexión de los nodos (LWT)",
+    "info": "",
+    "wires": []
+  },
+  {
+    "id": "in_status",
+    "type": "mqtt in",
+    "z": "mt_tab_drift",
+    "x": 170,
+    "y": 360,
+    "name": "mantetwin/+/status",
+    "topic": "mantetwin/+/status",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "fn_status"
+      ]
+    ]
+  },
+  {
+    "id": "fn_status",
+    "type": "function",
+    "z": "mt_tab_drift",
+    "x": 430,
+    "y": 360,
+    "name": "Estado nodo",
+    "func": "const nodeId = msg.topic.split('/')[1];\nnode.status({fill: msg.payload === 'online' ? 'green' : 'red', shape: 'dot', text: nodeId + ': ' + msg.payload});\nmsg.payload = {node: nodeId, status: msg.payload, ts: Date.now()};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dbg_status"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_status",
+    "type": "debug",
+    "z": "mt_tab_drift",
+    "x": 660,
+    "y": 360,
+    "name": "Conexión",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "wires": []
+  },
+  {
+    "id": "c3",
+    "type": "comment",
+    "z": "mt_tab_drift",
+    "x": 220,
+    "y": 420,
+    "name": "3 · Simulador (probar sin Wokwi)",
+    "info": "Activa el simulador y elige la velocidad de deriva. Inyecta telemetría falsa cada 2 s directamente en 'Tendencia + RUL'. Páralo antes de usar el nodo real.",
+    "wires": []
+  },
+  {
+    "id": "inj_start0",
+    "type": "inject",
+    "z": "mt_tab_drift",
+    "x": 160,
+    "y": 480,
+    "name": "▶ Sin deriva",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "wires": [
+      [
+        "chg_0"
+      ]
+    ]
+  },
+  {
+    "id": "chg_0",
+    "type": "change",
+    "z": "mt_tab_drift",
+    "x": 390,
+    "y": 480,
+    "name": "sim: on, 0 °C/min",
+    "rules": [
+      {
+        "t": "set",
+        "p": "sim_on",
+        "pt": "flow",
+        "to": "true",
+        "tot": "bool"
+      },
+      {
+        "t": "set",
+        "p": "sim_rate",
+        "pt": "flow",
+        "to": "0",
+        "tot": "num"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "to": "",
+    "reg": false,
+    "wires": [
+      []
+    ],
+    "from": ""
+  },
+  {
+    "id": "inj_start1",
+    "type": "inject",
+    "z": "mt_tab_drift",
+    "x": 160,
+    "y": 520,
+    "name": "▶ Deriva lenta 0,1 °C/min",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "wires": [
+      [
+        "chg_1"
+      ]
+    ]
+  },
+  {
+    "id": "chg_1",
+    "type": "change",
+    "z": "mt_tab_drift",
+    "x": 390,
+    "y": 520,
+    "name": "sim: on, 0,1 °C/min",
+    "rules": [
+      {
+        "t": "set",
+        "p": "sim_on",
+        "pt": "flow",
+        "to": "true",
+        "tot": "bool"
+      },
+      {
+        "t": "set",
+        "p": "sim_rate",
+        "pt": "flow",
+        "to": "0.1",
+        "tot": "num"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "to": "",
+    "reg": false,
+    "wires": [
+      []
+    ],
+    "from": ""
+  },
+  {
+    "id": "inj_start2",
+    "type": "inject",
+    "z": "mt_tab_drift",
+    "x": 160,
+    "y": 560,
+    "name": "▶ Deriva rápida 0,5 °C/min",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "wires": [
+      [
+        "chg_2"
+      ]
+    ]
+  },
+  {
+    "id": "chg_2",
+    "type": "change",
+    "z": "mt_tab_drift",
+    "x": 390,
+    "y": 560,
+    "name": "sim: on, 0,5 °C/min",
+    "rules": [
+      {
+        "t": "set",
+        "p": "sim_on",
+        "pt": "flow",
+        "to": "true",
+        "tot": "bool"
+      },
+      {
+        "t": "set",
+        "p": "sim_rate",
+        "pt": "flow",
+        "to": "0.5",
+        "tot": "num"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "to": "",
+    "reg": false,
+    "wires": [
+      []
+    ],
+    "from": ""
+  },
+  {
+    "id": "inj_stop",
+    "type": "inject",
+    "z": "mt_tab_drift",
+    "x": 160,
+    "y": 600,
+    "name": "■ Parar",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "wires": [
+      [
+        "chg_stop"
+      ]
+    ]
+  },
+  {
+    "id": "chg_stop",
+    "type": "change",
+    "z": "mt_tab_drift",
+    "x": 390,
+    "y": 600,
+    "name": "sim: off",
+    "rules": [
+      {
+        "t": "set",
+        "p": "sim_on",
+        "pt": "flow",
+        "to": "false",
+        "tot": "bool"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "to": "",
+    "reg": false,
+    "wires": [
+      []
+    ],
+    "from": ""
+  },
+  {
+    "id": "inj_tick",
+    "type": "inject",
+    "z": "mt_tab_drift",
+    "x": 150,
+    "y": 660,
+    "name": "cada 2 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "2",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "wires": [
+      [
+        "fn_sim"
+      ]
+    ]
+  },
+  {
+    "id": "fn_sim",
+    "type": "function",
+    "z": "mt_tab_drift",
+    "x": 390,
+    "y": 660,
+    "name": "Simulador mt-drift",
+    "func": "// Simulador de telemetría (para probar el flujo sin Wokwi)\n// flow.sim_rate = deriva en °C/min (0 = sin deriva)\nconst rate = flow.get(\"sim_rate\") || 0;\nif (flow.get(\"sim_on\") !== true) return null;\nlet s = context.get(\"s\") || { seq: 0, off: 0, ema: 0 };\ns.seq++;\ns.off += rate * (2 / 60);                     // muestras cada 2 s\nconst tRef = 24 + (Math.random() - 0.5) * 0.1;\nconst t = 24 + s.off + (Math.random() - 0.5) * 0.1;\nconst dT = t - tRef;\ns.ema = 0.9 * s.ema + 0.1 * dT;\ncontext.set(\"s\", s);\nconst st = Math.abs(s.ema) > 1.5 ? \"DRIFT_ALARM\" : Math.abs(s.ema) > 0.5 ? \"DRIFT_WARN\" : \"OK\";\nmsg.payload = { node: \"mt-drift\", scn: 1, seq: s.seq, t: +t.toFixed(2), h: 45, t_ref: +tRef.toFixed(2),\n                dT: +dT.toFixed(3), dT_ema: +s.ema.toFixed(3), st, label: rate > 0 ? 1 : 0 };\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "fn_rul"
+      ]
+    ]
+  },
+  {
+    "id": "mt_tab_dash3",
+    "type": "tab",
+    "label": "ManteTwin · Dashboard deriva",
+    "disabled": false,
+    "info": "Página de deriva colgada del dashboard ENV III (env3_ui_base)."
+  },
+  {
+    "id": "mt_ui_page3",
+    "type": "ui-page",
+    "name": "1 · Deriva",
+    "ui": "env3_ui_base",
+    "path": "/deriva",
+    "icon": "thermometer",
+    "layout": "grid",
+    "theme": "env3_ui_theme",
+    "order": 2,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "mt_ui_g1_3",
+    "type": "ui-group",
+    "name": "Desviación nagusia − erreferentzia",
+    "page": "mt_ui_page3",
+    "width": "8",
+    "height": "1",
+    "order": 1,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "mt_ui_g2_3",
+    "type": "ui-group",
+    "name": "Estado y RUL",
+    "page": "mt_ui_page3",
+    "width": "4",
+    "height": "1",
+    "order": 2,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "d_in_v3",
+    "type": "mqtt in",
+    "z": "mt_tab_dash3",
+    "x": 170,
+    "y": 120,
+    "name": "analytics mt-drift",
+    "topic": "mantetwin/mt-drift/analytics",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "d_split_v3",
+        "d_dbg_v3"
+      ]
+    ]
+  },
+  {
+    "id": "d_split_v3",
+    "type": "function",
+    "z": "mt_tab_dash3",
+    "x": 400,
+    "y": 120,
+    "name": "Repartir",
+    "func": "const a = msg.payload;\nconst fmt = m => m === null ? '—' : m < 1 ? Math.round(m * 60) + ' s' : m.toFixed(1) + ' min';\nconst labels = {OK: '🟢 OK', TREND: '🟡 Tendencia de deriva', WARN: '🟠 Aviso', ALARM: '🔴 ALARMA – recalibrar'};\nreturn [\n  [ {topic: 'dT_ema', payload: a.dT_ema},\n    {topic: 'Aviso 0,5 °C', payload: 0.5},\n    {topic: 'Alarma 1,5 °C', payload: 1.5} ],\n  {payload: a.health_pct},\n  {payload: fmt(a.rul_min)},\n  {payload: labels[a.state_server] || a.state_server},\n  {payload: (a.slope_c_min * 60).toFixed(2) + ' °C/h  (R² ' + a.r2 + ')'},\n  {payload: a.state_edge + (a.label ? '  · fallo inyectado' : '')}\n];",
+    "outputs": 6,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "d_chart_v3"
+      ],
+      [
+        "d_gauge_v3"
+      ],
+      [
+        "d_rul_v3"
+      ],
+      [
+        "d_state_v3"
+      ],
+      [
+        "d_slope_v3"
+      ],
+      [
+        "d_edge_v3"
+      ]
+    ]
+  },
+  {
+    "id": "d_chart_v3",
+    "type": "ui-chart",
+    "z": "mt_tab_dash3",
+    "x": 680,
+    "y": 40,
+    "group": "mt_ui_g1_3",
+    "name": "",
+    "label": "dT_ema (°C)",
+    "order": 1,
+    "chartType": "line",
+    "category": "topic",
+    "categoryType": "msg",
+    "xAxisLabel": "",
+    "xAxisProperty": "",
+    "xAxisPropertyType": "timestamp",
+    "xAxisType": "time",
+    "xAxisFormat": "",
+    "xAxisFormatType": "auto",
+    "yAxisLabel": "°C",
+    "yAxisProperty": "payload",
+    "yAxisPropertyType": "msg",
+    "ymin": "",
+    "ymax": "",
+    "action": "append",
+    "stackSeries": false,
+    "pointShape": "false",
+    "pointRadius": 0,
+    "showLegend": true,
+    "removeOlder": "15",
+    "removeOlderUnit": "60",
+    "removeOlderPoints": "",
+    "colors": [
+      "#1f78b4",
+      "#ff9f1c",
+      "#e63946",
+      "#2ca02c",
+      "#9467bd",
+      "#8c564b",
+      "#e377c2",
+      "#7f7f7f",
+      "#bcbd22"
+    ],
+    "textColor": [
+      "#666666"
+    ],
+    "textColorDefault": true,
+    "gridColor": [
+      "#e5e5e5"
+    ],
+    "gridColorDefault": true,
+    "width": 8,
+    "height": 6,
+    "className": "",
+    "interpolation": "linear",
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "d_gauge_v3",
+    "type": "ui-gauge",
+    "z": "mt_tab_dash3",
+    "x": 670,
+    "y": 100,
+    "group": "mt_ui_g2_3",
+    "name": "",
+    "order": 1,
+    "width": 4,
+    "height": 3,
+    "gtype": "gauge-half",
+    "gstyle": "needle",
+    "title": "Salud del sensor",
+    "units": "%",
+    "icon": "",
+    "prefix": "",
+    "suffix": "",
+    "segments": [
+      {
+        "from": "0",
+        "color": "#e63946"
+      },
+      {
+        "from": "33",
+        "color": "#ff9f1c"
+      },
+      {
+        "from": "66",
+        "color": "#2ca02c"
+      }
+    ],
+    "min": 0,
+    "max": "100",
+    "sizeThickness": 16,
+    "sizeGap": 4,
+    "sizeKeyThickness": 8,
+    "styleRounded": true,
+    "styleGlow": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "d_rul_v3",
+    "type": "ui-text",
+    "z": "mt_tab_dash3",
+    "x": 660,
+    "y": 140,
+    "group": "mt_ui_g2_3",
+    "order": 2,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "RUL (hasta 1,5 °C)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 16,
+    "color": "#333333",
+    "wrapText": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "d_state_v3",
+    "type": "ui-text",
+    "z": "mt_tab_dash3",
+    "x": 660,
+    "y": 180,
+    "group": "mt_ui_g2_3",
+    "order": 3,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Estado (servidor)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 16,
+    "color": "#333333",
+    "wrapText": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "d_slope_v3",
+    "type": "ui-text",
+    "z": "mt_tab_dash3",
+    "x": 660,
+    "y": 220,
+    "group": "mt_ui_g2_3",
+    "order": 4,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Velocidad de deriva",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 16,
+    "color": "#333333",
+    "wrapText": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "d_edge_v3",
+    "type": "ui-text",
+    "z": "mt_tab_dash3",
+    "x": 660,
+    "y": 260,
+    "group": "mt_ui_g2_3",
+    "order": 5,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Estado (Edge)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 16,
+    "color": "#333333",
+    "wrapText": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "d_in_al_v3",
+    "type": "mqtt in",
+    "z": "mt_tab_dash3",
+    "x": 170,
+    "y": 340,
+    "name": "alert mt-drift",
+    "topic": "mantetwin/mt-drift/alert",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "env3_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "d_al_fmt_v3"
+      ]
+    ]
+  },
+  {
+    "id": "d_al_fmt_v3",
+    "type": "change",
+    "z": "mt_tab_dash3",
+    "x": 400,
+    "y": 340,
+    "name": "texto alerta",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "payload.msg",
+        "tot": "msg"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "wires": [
+      [
+        "d_notif_v3"
+      ]
+    ]
+  },
+  {
+    "id": "d_notif_v3",
+    "type": "ui-notification",
+    "z": "mt_tab_dash3",
+    "x": 620,
+    "y": 340,
+    "ui": "env3_ui_base",
+    "position": "top right",
+    "colorDefault": true,
+    "color": "#000000",
+    "displayTime": "8",
+    "showCountdown": true,
+    "outputs": 1,
+    "allowDismiss": true,
+    "dismissText": "Cerrar",
+    "raw": false,
+    "className": "",
+    "name": "Notificación",
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "d_dbg_v3",
+    "type": "debug",
+    "z": "mt_tab_dash3",
+    "name": "analytics (comprobar)",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload.state_server",
+    "targetType": "msg",
+    "statusVal": "payload.state_server",
+    "statusType": "msg",
+    "x": 420,
+    "y": 60,
+    "wires": []
+  }
+]

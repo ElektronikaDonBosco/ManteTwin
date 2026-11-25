@@ -1,0 +1,11 @@
+{
+  "name": "SHT30 ManteTwin",
+  "author": "CIFP Don Bosco LHII - ManteTwin",
+  "pins": ["SCL", "SDA", "VCC", "GND", "FLT"],
+  "controls": [
+    { "id": "temperature", "label": "Tenperatura (°C)", "type": "range", "min": -10, "max": 80, "step": 0.1 },
+    { "id": "humidity", "label": "Hezetasuna (%)", "type": "range", "min": 0, "max": 100, "step": 0.5 },
+    { "id": "driftRate", "label": "Deriba (°C/min)", "type": "range", "min": 0, "max": 2, "step": 0.05 },
+    { "id": "faultMode", "label": "Akatsa: 0 OK | 1 blok. | 2 hilda | 3 interm. | 4 CRC", "type": "range", "min": 0, "max": 4, "step": 1 }
+  ]
+}

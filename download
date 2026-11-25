@@ -1,0 +1,12 @@
+# KiCad
+*-backups/
+*.kicad_prl
+fp-info-cache
+_autosave-*
+*.lck
+# Sistema
+.DS_Store
+Thumbs.db
+# Node-RED / credenciales
+*_cred.json
+.env
